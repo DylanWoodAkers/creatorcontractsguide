@@ -32,18 +32,56 @@ const ARTICLES = [
 ];
 
 // HTML template
-function template(content, { title, isHome = false }) {
-  const nav = ARTICLES.map(a => 
-    `<li><a href="/${a.slug}">${a.title}</a></li>`
-  ).join('\n');
+function template(content, { title, description, slug, isHome = false }) {
+  const canonicalUrl = isHome ? SITE.url + '/' : SITE.url + '/' + slug + '/';
+  const metaDesc = description || SITE.tagline;
+  const fullTitle = isHome ? SITE.title + ' - ' + SITE.tagline : title + ' | ' + SITE.title;
+  
+  // JSON-LD structured data
+  const jsonLd = isHome ? {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": SITE.title,
+    "url": SITE.url,
+    "description": SITE.tagline
+  } : {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": title,
+    "description": metaDesc,
+    "url": canonicalUrl,
+    "publisher": {
+      "@type": "Organization",
+      "name": SITE.title
+    },
+    "datePublished": "2026-02-06",
+    "dateModified": "2026-02-06"
+  };
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title} | ${SITE.title}</title>
-  <meta name="description" content="${SITE.tagline}">
+  <title>${fullTitle}</title>
+  <meta name="description" content="${metaDesc}">
+  <link rel="canonical" href="${canonicalUrl}">
+  
+  <!-- Open Graph -->
+  <meta property="og:title" content="${fullTitle}">
+  <meta property="og:description" content="${metaDesc}">
+  <meta property="og:url" content="${canonicalUrl}">
+  <meta property="og:type" content="${isHome ? 'website' : 'article'}">
+  <meta property="og:site_name" content="${SITE.title}">
+  
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="${fullTitle}">
+  <meta name="twitter:description" content="${metaDesc}">
+  
+  <!-- Structured Data -->
+  <script type="application/ld+json">${JSON.stringify(jsonLd)}</script>
+  
   <link rel="stylesheet" href="/styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -134,7 +172,7 @@ function generateHome() {
     </div>
   `;
 
-  return template(content, { title: 'Home', isHome: true });
+  return template(content, { title: 'Home', description: SITE.tagline, slug: '', isHome: true });
 }
 
 // Generate article page
@@ -160,7 +198,11 @@ function generateArticle(article) {
     </article>
   `;
 
-  return template(content, { title: article.title });
+  // Extract first paragraph as description
+  const firstPara = md.match(/^[^#\n].+/m);
+  const description = firstPara ? firstPara[0].substring(0, 160) : article.title;
+  
+  return template(content, { title: article.title, description: description, slug: article.slug });
 }
 
 // CSS styles
